@@ -8,35 +8,44 @@ session_start();
 // Получаем URL или путь
 $link = isset($_GET['file']) ? $_GET['file'] : '';
 
-// Функция для проверки URL (поддерживает кириллицу и процентную кодировку)
-function isValidUrl($url) {
-    if (!preg_match('/^https?:\/\//i', $url)) {
-        return false;
-    }
-    $parsed = parse_url($url);
-    if (!isset($parsed['host']) || empty($parsed['host'])) {
-        return false;
-    }
-    return true;
-}
-
-// Определяем тип пути
-$is_full_url = isValidUrl($link);
-$is_absolute_path = !empty($link) && $link[0] === '/' && !$is_full_url;
-$redirect_url = '';
-$link_name = '';
-
-if ($is_full_url) {
-    $redirect_url = $link;
-    $parsed_path = parse_url($link, PHP_URL_PATH);
-    $link_name = $parsed_path ? basename(urldecode($parsed_path)) : parse_url($link, PHP_URL_HOST);
-} elseif ($is_absolute_path) {
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'];
-    $redirect_url = $protocol . '://' . $host . $link;
-    $link_name = basename(urldecode($link));
+// Если ссылка не указана - показываем конструктор
+if (empty($link)) {
+    $show_constructor = true;
+    $redirect_url = '';
+    $link_name = '';
 } else {
-    die("Неверный формат ссылки! Используйте полный URL или абсолютный путь от корня сайта.");
+    $show_constructor = false;
+    
+    // Функция для проверки URL (поддерживает кириллицу и процентную кодировку)
+    function isValidUrl($url) {
+        if (!preg_match('/^https?:\/\//i', $url)) {
+            return false;
+        }
+        $parsed = parse_url($url);
+        if (!isset($parsed['host']) || empty($parsed['host'])) {
+            return false;
+        }
+        return true;
+    }
+
+    // Определяем тип пути
+    $is_full_url = isValidUrl($link);
+    $is_absolute_path = !empty($link) && $link[0] === '/' && !$is_full_url;
+    $redirect_url = '';
+    $link_name = '';
+
+    if ($is_full_url) {
+        $redirect_url = $link;
+        $parsed_path = parse_url($link, PHP_URL_PATH);
+        $link_name = $parsed_path ? basename(urldecode($parsed_path)) : parse_url($link, PHP_URL_HOST);
+    } elseif ($is_absolute_path) {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $redirect_url = $protocol . '://' . $host . $link;
+        $link_name = basename(urldecode($link));
+    } else {
+        die("Неверный формат ссылки! Используйте полный URL или абсолютный путь от корня сайта.");
+    }
 }
 
 // Генерация токена (совместимо с PHP 5.x)
@@ -94,11 +103,26 @@ function validateCaptcha() {
 }
 
 // Обработка перехода по ссылке
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$show_constructor) {
     $validation_errors = validateCaptcha();
     
     if (empty($validation_errors)) {
         $target_url = isset($_POST['target_url']) ? $_POST['target_url'] : '';
+        
+        // Функция для проверки URL (если не была определена ранее)
+        if (!function_exists('isValidUrl')) {
+            function isValidUrl($url) {
+                if (!preg_match('/^https?:\/\//i', $url)) {
+                    return false;
+                }
+                $parsed = parse_url($url);
+                if (!isset($parsed['host']) || empty($parsed['host'])) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        
         $is_valid_url = isValidUrl($target_url);
         
         unset($_SESSION['form_token']);
@@ -115,12 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-if (empty($link)) {
-    die("Не указана ссылка для перехода!");
+if (!$show_constructor) {
+    $token = generateToken();
+    setStartTime();
 }
-
-$token = generateToken();
-setStartTime();
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -526,6 +548,174 @@ setStartTime();
             pointer-events: none;
         }
         
+        .constructor {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e2e8f0;
+        }
+        
+        .constructor-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .constructor-subtitle {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+            background: #f7fafc;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .generate-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+        }
+        
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+        
+        .result-box {
+            display: none;
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+            border: 2px solid #48bb78;
+            border-radius: 12px;
+            animation: slideUp 0.4s ease-out;
+        }
+        
+        .result-box.show {
+            display: block;
+        }
+        
+        .result-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #22543d;
+            margin-bottom: 12px;
+        }
+        
+        .result-link {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .result-url {
+            flex: 1;
+            padding: 12px;
+            background: white;
+            border: 1px solid #9ae6b4;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #2d3748;
+            word-break: break-all;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .copy-btn {
+            padding: 12px 20px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        
+        .copy-btn:hover {
+            background: #38a169;
+            transform: scale(1.05);
+        }
+        
+        .copy-btn.copied {
+            background: #2f855a;
+        }
+        
+        .examples {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .examples-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .example-item {
+            font-size: 13px;
+            color: #4a5568;
+            margin: 8px 0;
+            padding-left: 15px;
+            position: relative;
+        }
+        
+        .example-item:before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
         @media (max-width: 600px) {
             body {
                 padding: 15px;
@@ -570,6 +760,14 @@ setStartTime();
             .captcha-box {
                 padding: 18px;
                 margin: 20px 0;
+            }
+            
+            .result-link {
+                flex-direction: column;
+            }
+            
+            .copy-btn {
+                width: 100%;
             }
         }
         
@@ -635,16 +833,130 @@ setStartTime();
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="shield-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-                </svg>
+        <?php if ($show_constructor): ?>
+            <div class="header">
+                <div class="shield-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                    </svg>
+                </div>
+                <h1>Конструктор защищенных ссылок</h1>
+                <p class="subtitle">Создайте защищенную ссылку с проверкой "Я не робот"</p>
             </div>
-            <h1>Защищенный переход</h1>
-            <p class="subtitle">Проверка безопасности перед переходом</p>
-        </div>
+            
+            <div class="constructor">
+                <h2 class="constructor-title">🔗 Генератор ссылок</h2>
+                <p class="constructor-subtitle">Введите URL, который хотите защитить</p>
+                
+                <div class="input-group">
+                    <label class="input-label" for="targetUrl">URL для защиты</label>
+                    <input 
+                        type="text" 
+                        id="targetUrl" 
+                        class="input-field" 
+                        placeholder="https://example.com/file.mp3 или /path/to/file.pdf"
+                        autocomplete="off"
+                    >
+                </div>
+                
+                <button onclick="generateLink()" class="generate-btn">
+                    ✨ Создать защищенную ссылку
+                </button>
+                
+                <div id="resultBox" class="result-box">
+                    <div class="result-title">✅ Защищенная ссылка создана!</div>
+                    <div class="result-link">
+                        <div class="result-url" id="resultUrl"></div>
+                        <button onclick="copyLink()" class="copy-btn" id="copyBtn">
+                            📋 Копировать
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="examples">
+                    <div class="examples-title">💡 Примеры использования:</div>
+                    <div class="example-item">https://example.com/song.mp3</div>
+                    <div class="example-item">/sound/music/track.mp3</div>
+                    <div class="example-item">https://site.com/document.pdf</div>
+                </div>
+            </div>
+            
+            <script>
+                function generateLink() {
+                    const targetUrl = document.getElementById('targetUrl').value.trim();
+                    
+                    if (!targetUrl) {
+                        alert('Пожалуйста, введите URL!');
+                        return;
+                    }
+                    
+                    // Получаем текущий URL страницы
+                    const currentUrl = window.location.origin + window.location.pathname;
+                    
+                    // Создаем защищенную ссылку
+                    const protectedUrl = currentUrl + '?file=' + encodeURIComponent(targetUrl);
+                    
+                    // Показываем результат
+                    document.getElementById('resultUrl').textContent = protectedUrl;
+                    document.getElementById('resultBox').classList.add('show');
+                    
+                    // Прокручиваем к результату
+                    document.getElementById('resultBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                
+                function copyLink() {
+                    const resultUrl = document.getElementById('resultUrl').textContent;
+                    const copyBtn = document.getElementById('copyBtn');
+                    
+                    // Копируем в буфер обмена
+                    navigator.clipboard.writeText(resultUrl).then(function() {
+                        // Меняем текст кнопки
+                        copyBtn.textContent = '✅ Скопировано!';
+                        copyBtn.classList.add('copied');
+                        
+                        // Возвращаем обратно через 2 секунды
+                        setTimeout(function() {
+                            copyBtn.textContent = '📋 Копировать';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    }).catch(function() {
+                        // Fallback для старых браузеров
+                        const textArea = document.createElement('textarea');
+                        textArea.value = resultUrl;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        copyBtn.textContent = '✅ Скопировано!';
+                        copyBtn.classList.add('copied');
+                        setTimeout(function() {
+                            copyBtn.textContent = '📋 Копировать';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    });
+                }
+                
+                // Enter для генерации
+                document.getElementById('targetUrl').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        generateLink();
+                    }
+                });
+            </script>
+        <?php else: ?>
+            <div class="header">
+                <div class="shield-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                    </svg>
+                </div>
+                <h1>Защищенный переход</h1>
+                <p class="subtitle">Проверка безопасности перед переходом</p>
+            </div>
+        <?php endif; ?>
         
+        <?php if (!$show_constructor): ?>
         <div class="cookie-warning" id="cookieWarning">
             <h3>⚠️ Cookies отключены</h3>
             <p>Для защиты от ботов требуется включить cookies в вашем браузере.</p>
@@ -703,8 +1015,11 @@ setStartTime();
         <div class="info">
             🔒 <strong>Защита активирована.</strong> Подтвердите, что вы человек, поставив галочку выше. Это защищает от автоматических переходов и ботов.
         </div>
+        
+        <?php endif; ?>
     </div>
 
+    <?php if (!$show_constructor): ?>
     <script>
         function checkCookies() {
             document.cookie = "test_cookie=1; path=/";
@@ -770,5 +1085,6 @@ setStartTime();
             }
         });
     </script>
+    <?php endif; ?>
 </body>
 </html>
